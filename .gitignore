@@ -1,0 +1,11 @@
+//gradle stuff
+.gradle/*
+gradle/*
+gradlew
+gradlew.bat
+
+build/*
+
+//ide stuff
+.idea/*
+
