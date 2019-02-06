@@ -10,9 +10,17 @@ import java.util.StringJoiner;
 
 
 /**
- * Converts a String to a S3Resource object with
+ * Converts a String to a Regions
  */
 public class StringToRegionConverter implements IStringConverter<Regions> {
+    /**
+     * Converts a valid String to a Region
+     * e.g. us-west-2 -> Regions.US_WEST_2
+     *
+     * @param value Input String
+     * @return Regions object given valid input
+     * @throws ParameterException when an invalid input is provided
+     */
     @Override
     public Regions convert(final String value) {
         try {

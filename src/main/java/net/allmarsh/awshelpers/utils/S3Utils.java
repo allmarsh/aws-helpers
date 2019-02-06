@@ -1,14 +1,10 @@
 package net.allmarsh.awshelpers.utils;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.beust.jcommander.ParameterException;
-import net.allmarsh.awshelpers.cli.Args;
 import net.allmarsh.awshelpers.models.S3ListSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,26 +15,26 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class S3KeyRandomizer {
+public class S3Utils {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(S3KeyRandomizer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(S3Utils.class);
 
-    public List<S3ObjectSummary> generateRandomizedKeys(final Args args) {
-
-        final AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                .withCredentials(new DefaultAWSCredentialsProviderChain())
-                .withRegion(args.getInputRegion())
-                .build();
-
-        final ListObjectsV2Request req = new ListObjectsV2Request()
-                .withBucketName(args.getInput().getBucketName())
-                .withPrefix(args.getInput().getPrefix());
-
-        final S3ListSummary s3ListSummary = generateS3ListSummary(s3Client, req);
+    /**
+     * Generates a filtered list of S3ObjectSummary objects that corresponds to the provided @filteredIndexes.
+     *
+     * @param s3Client      S3 Client
+     * @param req           Request containing bucket and prefix information
+     * @param filterIndexes List of indexes that correspond to the provided request.
+     * @return A list of filtered S3ObjectSummary objects. Only the indexed summaries corresponding to the
+     * filterIndexes will be returned.
+     */
+    public static List<S3ObjectSummary> generateFilteredIndexedSummaries(
+            final AmazonS3 s3Client,
+            final ListObjectsV2Request req,
+            final List<Integer> filterIndexes
+    ) {
 
         final List<S3ObjectSummary> s3Objects = new ArrayList<>();
-        final List<Integer> filterIndexes = generateRandomNumbers(0, s3ListSummary.getNumObjects(), args.getNumFiles());
-
         int objectCounter = 0;
         ListObjectsV2Result listResult;
 
@@ -47,7 +43,7 @@ public class S3KeyRandomizer {
             final List<S3ObjectSummary> currentList = listResult.getObjectSummaries();
             final int objCount = objectCounter;
             s3Objects.addAll(
-                    IntStream.range(0, currentList.size() - 1)
+                    IntStream.range(0, currentList.size())
                             .filter(ind -> filterIndexes.contains(ind + objCount))
                             .mapToObj(currentList::get)
                             .collect(Collectors.toList())
@@ -62,8 +58,14 @@ public class S3KeyRandomizer {
 
     }
 
-    // TODO : Make sure not changing param value
-    S3ListSummary generateS3ListSummary(final AmazonS3 s3Client, final ListObjectsV2Request req) {
+    /**
+     * Generates a summary of a listObjectsV2 call. Not just the first X objects.
+     *
+     * @param s3Client S3 Client providing region information
+     * @param req      Request providing bucket adn key information
+     * @return A S3ListSummary object providing total s3 objects and the number of continuation tokens (windows)
+     */
+    public static S3ListSummary generateS3ListSummary(final AmazonS3 s3Client, final ListObjectsV2Request req) {
 
         ListObjectsV2Result listResult;
 
@@ -83,34 +85,27 @@ public class S3KeyRandomizer {
 
     }
 
-    List<Integer> generateRandomNumbers(final int rangeStart, final int rangeEnd, final int numberRandom) {
+    /**
+     * Generates a random list of size @numberRandom of Integers in the range between @rangeStart and @rangeEnd
+     *
+     * @param rangeStart   Inclusive range start number
+     * @param rangeEnd     Exclusive range end number
+     * @param numberRandom Number of random numbers
+     * @return A list of random numbers in the provided range.
+     * @throws ParameterException when the requested number exceeds the range.
+     */
+    public static List<Integer> generateRandomNumbers(final int rangeStart, final int rangeEnd, final int numberRandom) {
 
         if (numberRandom > (rangeEnd - rangeStart)) {
             throw new ParameterException(String.format("Not a valid input." +
                     "Range of %s to %s does not meet required range of %s", rangeStart, rangeEnd, numberRandom));
         }
         return new Random()
-                .ints(rangeStart, rangeEnd)
+                .ints(rangeStart, rangeEnd - 1)
                 .distinct()
                 .limit(numberRandom)
                 .boxed()
                 .collect(Collectors.toList());
-    }
-
-
-    void awsS3Regionless(final Args args) {
-
-        final ListObjectsV2Request req = new ListObjectsV2Request()
-                .withBucketName(args.getInput().getBucketName())
-                .withPrefix(args.getInput().getPrefix());
-
-        for (final Regions region : Regions.values()) {
-            final ListObjectsV2Result listResult = AmazonS3ClientBuilder.standard()
-                    .withCredentials(new DefaultAWSCredentialsProviderChain())
-                    .withRegion(region)
-                    .build()
-                    .listObjectsV2(req);
-        }
     }
 
 
